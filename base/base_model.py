@@ -16,4 +16,7 @@ class BaseModel(nn.Module):
     @abstractmethod
     def load_latest(self):
         raise NotImplementedError
-        
+    
+    @abstractmethod
+    def export(self):
+        raise NotImplementedError
