@@ -1,3 +1,4 @@
+import numpy as np
 import torch
 import torch.nn as nn
 from torch import Tensor
@@ -71,6 +72,6 @@ def test_onnx(model_path: str, image_path: str):
     img = image_to_tensor(image_path, invert_colors=True)
     inputs = {session.get_inputs()[0].name: to_numpy(img.unsqueeze(0))}
     outputs = session.run(None, inputs)
-    y = list(outputs[0])
+    y: np.ndarray = outputs[0][0]
 
     return y
