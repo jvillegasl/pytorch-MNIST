@@ -3,13 +3,10 @@ from torchvision.transforms import ToTensor
 from torch.utils.data.dataloader import DataLoader
 from torch.utils.data.sampler import SubsetRandomSampler
 from definitions import DATA_PATH
-from utils import get_default_device, to_device, split_indices
+from utils import get_default_device, split_indices
 from base import DeviceDataLoader
 
 from torch import device as Device
-from torch.utils.data.dataset import Dataset
-from typing import List, Tuple
-from torch import Tensor
 
 
 __all__ = ['MNISTDataLoader']
@@ -17,7 +14,6 @@ __all__ = ['MNISTDataLoader']
 class MNISTDataLoader():
     train_dl: DeviceDataLoader
     val_dl: DeviceDataLoader
-    classes: List[str]
     device: Device
     batch_size: int
     validation_split: float
