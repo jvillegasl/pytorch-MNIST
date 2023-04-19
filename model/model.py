@@ -1,12 +1,13 @@
 import os
 import time
 from torch import nn, Tensor
+from torch.jit._script import script, ScriptModule
 import torch
 import torch.nn.functional as F
-from torchsummary import summary
+import torchsummary
 from base import BaseModel
 
-from definitions import DATA_PATH
+from definitions import DATA_PATH, EXPORTS_PATH
 from utils import get_default_device
 
 
@@ -41,15 +42,16 @@ class MNISTModel(BaseModel):
         self.max_pool5 = nn.MaxPool2d(2, 2)
         # output: bs x 16 x 1 x 1
 
+        self.dropout1 = nn.Dropout2d(0.25)
+        # output: bs x 16 x 1 x 1
+
         self.flatten1 = nn.Flatten()  # output: bs x 16
-        self.linear1 = nn.Linear(16, 10)  # output: bs x 10
+        self.linear1 = nn.Linear(16, 10)  # output: bs x 64
 
         self.to(get_default_device())
 
     def forward(self, x: Tensor):
-        out: Tensor
-
-        out = self.conv1(x)
+        out: Tensor = self.conv1(x)
         out = self.relu1(out)
         out = self.max_pool1(out)
 
@@ -69,6 +71,8 @@ class MNISTModel(BaseModel):
         out = self.relu5(out)
         out = self.max_pool5(out)
 
+        out = self.dropout1(out)
+
         out = self.flatten1(out)
         out = self.linear1(out)
 
@@ -77,7 +81,7 @@ class MNISTModel(BaseModel):
         return out
 
     def summary(self):
-        summary(self, (1, 28, 28), device='cpu')
+        torchsummary.summary(self, (1, 28, 28), device='cuda')
 
     def save(self):
         file_name = time.strftime("%Y_%m_%dT%H_%M_%S") + ".pth"
@@ -92,7 +96,38 @@ class MNISTModel(BaseModel):
 
         weights_files = [os.path.join(folder_path, file)
                          for file in files_list if file.endswith('.pth')]
-
         file_path = max(weights_files, key=os.path.getctime)
-        
+
         self.load_state_dict(torch.load(file_path))
+        print('Model loaded from: {}'.format(file_path))
+
+    def export(self, file_name: str, as_onnx: bool = False):
+
+        if as_onnx:
+            file_path = os.path.join(EXPORTS_PATH, file_name + '.onnx')
+
+            self.to('cpu')
+            self.eval()
+            x = torch.randn(1, 1, 28, 28, requires_grad=True)
+            y = self(x)
+
+            torch.onnx.export(
+                self,
+                x,
+                file_path,
+                export_params=True,
+                opset_version=9,
+                do_constant_folding=True,
+                input_names=['input'],
+                output_names=['output'],
+                dynamic_axes={'input': {0: 'batch_size'},
+                              'output': {0: 'batch_size'}}
+            )
+
+            self.to(get_default_device())
+            return
+
+        file_path = os.path.join(EXPORTS_PATH, file_name + '.pt')
+        model_scripted = script(self)
+        model_scripted.to('cpu')
+        model_scripted.save(file_path)
